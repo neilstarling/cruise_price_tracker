@@ -110,6 +110,8 @@ h2 { color: var(--navy); font: 500 31px/1.2 "Playfair Display", Georgia, serif; 
 .filters label { display: grid; gap: 6px; color: var(--muted); font-size: 10px; font-weight: 600; letter-spacing: .04em; }
 .filters select { min-width: 155px; height: 39px; border: 1px solid var(--line); border-radius: 3px; padding: 0 32px 0 11px; color: var(--navy); background: var(--paper); font-size: 11px; }
 .filters label:last-child select { min-width: 208px; }
+.print-button { align-self: end; white-space: nowrap; }
+.print-button:disabled { cursor: not-allowed; opacity: .48; }
 .status-message { margin: 0 0 18px; padding: 12px 15px; border: 1px solid #e8d9b8; border-radius: 3px; color: var(--navy); background: #fbf6e9; font-size: 12px; line-height: 1.5; }
 .status-message[data-busy="true"]::before { display: inline-block; width: 12px; height: 12px; margin-right: 9px; border: 2px solid rgba(179,139,76,.28); border-top-color: var(--gold); border-radius: 50%; content: ""; vertical-align: -2px; animation: spin .8s linear infinite; }
 .status-message[data-kind="error"] { border-color: #ecc8c4; color: #7a2c28; background: #fff5f4; }
@@ -198,6 +200,7 @@ h2 { color: var(--navy); font: 500 31px/1.2 "Playfair Display", Georgia, serif; 
   .collection-heading { align-items: stretch; flex-direction: column; gap: 18px; }
   .filters { display: grid; grid-template-columns: 1fr 1.35fr; gap: 8px; }
   .filters select, .filters label:last-child select { width: 100%; min-width: 0; font-size: 10px; }
+  .print-button { grid-column: 1 / -1; justify-self: start; }
   .card-top { padding: 18px 16px 13px; }
   .card-body { padding: 0 16px 16px; }
   .card-foot { padding-right: 16px; padding-left: 16px; }
@@ -214,4 +217,20 @@ h2 { color: var(--navy); font: 500 31px/1.2 "Playfair Display", Georgia, serif; 
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}
+
+@media print {
+  body { min-width: 0; color: #111; background: white; }
+  .site-header { height: auto; padding: 0 0 14px; border-bottom: 1px solid #999; }
+  .header-actions, .hero, .filters, .status-message, .drop-overlay, .card-actions, .empty-state, .site-footer { display: none !important; }
+  .collection { min-height: 0; padding: 22px 0 0; }
+  .collection-heading { margin-bottom: 16px; }
+  .collection-heading h2 { color: #111; }
+  .cruise-list { grid-template-columns: 1fr; gap: 12px; }
+  .cruise-card { break-inside: avoid; border: 1px solid #aaa; border-radius: 0; background: white; box-shadow: none; }
+  .card-destination, .ship-label, .itinerary strong, .metric-value { color: #111; }
+  .metric-highlight .metric-value { color: #5c4525; }
+  .promo-notes { color: #333; background: white; }
+  .card-foot { color: #555; }
+  @page { margin: 14mm; }
 }

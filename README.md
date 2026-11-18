@@ -26,4 +26,6 @@ Screenshot extraction requires an internet connection and a valid API key. Previ
 
 Use **Export JSON** to download `cunard-cruises-backup.json`. **Import JSON** accepts that file (or a JSON array of cruise records) and can merge it with or replace the current collection. Merging updates matching cruise numbers and departure dates instead of creating duplicates.
 
+Use **Print voyages** to print or save a paper/PDF copy of the currently filtered and sorted cruise list.
+
 The app stores cruise data and the API key in this browser's `localStorage`; they are not automatically synchronized to GitHub. Review exported files before committing them, especially if they contain personal information.

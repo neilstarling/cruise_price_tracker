@@ -37,6 +37,7 @@ const elements = {
   list: document.querySelector("#cruise-list"),
   empty: document.querySelector("#empty-state"),
   count: document.querySelector("#cruise-count"),
+  printButton: document.querySelector("#print-button"),
   shipFilter: document.querySelector("#ship-filter"),
   sortOrder: document.querySelector("#sort-order"),
   settingsDialog: document.querySelector("#settings-dialog"),
@@ -160,6 +161,7 @@ function renderCruises() {
   filtered.sort(sorters[elements.sortOrder.value] ?? sorters.nightly);
 
   elements.count.textContent = String(cruises.length);
+  elements.printButton.disabled = filtered.length === 0;
   elements.list.replaceChildren(...filtered.map(createCruiseCard));
   elements.empty.hidden = cruises.length > 0;
   elements.list.hidden = filtered.length === 0;
@@ -441,6 +443,7 @@ elements.fileInput.addEventListener("change", (event) => {
 });
 elements.shipFilter.addEventListener("change", renderCruises);
 elements.sortOrder.addEventListener("change", renderCruises);
+elements.printButton.addEventListener("click", () => window.print());
 
 document.querySelector("#settings-button").addEventListener("click", () => {
   elements.apiKey.value = readApiKey();
