@@ -8,6 +8,8 @@ const FREE_MODELS = [
   "gemini-3.1-flash-lite"
 ];
 const RETRYABLE_API_STATUSES = new Set([429, 500, 502, 503, 504]);
+const MAX_MODEL_ATTEMPTS = 2;
+const MODEL_RETRY_DELAY_MS = 3000;
 const IMAGE_DB_NAME = "cunard-queens-grill-share-inbox";
 const IMAGE_STORE_NAME = "shared-images";
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
@@ -343,37 +345,50 @@ async function extractCruise(file, apiKey) {
   for (const [index, model] of FREE_MODELS.entries()) {
     const url = new URL(`${API_BASE_URL}/${model}:generateContent`);
     url.searchParams.set("key", apiKey);
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: requestBody
-    });
+    let modelSucceeded = false;
 
-    if (response.ok) {
-      try {
-        payload = await response.json();
-      } catch {
-        throw new Error(`Gemini ${model} returned an unreadable response.`);
+    for (let attempt = 1; attempt <= MAX_MODEL_ATTEMPTS; attempt += 1) {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: requestBody
+      });
+
+      if (response.ok) {
+        try {
+          payload = await response.json();
+        } catch {
+          throw new Error(`Gemini ${model} returned an unreadable response.`);
+        }
+        modelSucceeded = true;
+        break;
       }
+
+      const message = await readGeminiError(response, model);
+      const isHighDemand = response.status === 503 || message.toLowerCase().includes("high demand");
+      const shouldRetryModel = isHighDemand && attempt < MAX_MODEL_ATTEMPTS;
+
+      if (shouldRetryModel) {
+        console.warn(`${model} is busy (attempt ${attempt}/${MAX_MODEL_ATTEMPTS}); retrying in 3 seconds.`);
+        showStatus(`Gemini ${model} is busy; retrying in 3 seconds (attempt ${attempt}/${MAX_MODEL_ATTEMPTS})…`, "info", true);
+        await new Promise((resolve) => setTimeout(resolve, MODEL_RETRY_DELAY_MS));
+        continue;
+      }
+
+      const hasFallback = index < FREE_MODELS.length - 1;
+      const shouldTryFallback = RETRYABLE_API_STATUSES.has(response.status) || isHighDemand;
+      if (!shouldTryFallback || !hasFallback) {
+        const detail = shouldTryFallback ? `All Gemini fallback models were unavailable. ${message}` : message;
+        throw new Error(detail);
+      }
+
+      const nextModel = FREE_MODELS[index + 1];
+      console.warn(`${model} is temporarily unavailable (HTTP ${response.status}); trying ${nextModel}.`);
+      showStatus(`Gemini ${model} is busy; trying ${nextModel}…`, "info", true);
       break;
     }
 
-    let message = `Gemini ${model} request failed (HTTP ${response.status}).`;
-    try {
-      const errorPayload = await response.json();
-      message = errorPayload.error?.message || message;
-    } catch {
-      message = `Gemini ${model} returned an unreadable error response (HTTP ${response.status}).`;
-    }
-
-    const hasFallback = index < FREE_MODELS.length - 1;
-    if (!RETRYABLE_API_STATUSES.has(response.status) || !hasFallback) {
-      throw new Error(message);
-    }
-
-    const nextModel = FREE_MODELS[index + 1];
-    console.warn(`${model} is temporarily unavailable (HTTP ${response.status}); trying ${nextModel}.`);
-    showStatus(`Gemini ${model} is busy; trying ${nextModel}…`, "info", true);
+    if (modelSucceeded) break;
   }
 
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
@@ -392,6 +407,18 @@ async function extractCruise(file, apiKey) {
     throw new Error("Gemini's response did not contain a cruise object.");
   }
   return parsed;
+}
+
+async function readGeminiError(response, model) {
+  const body = await response.text();
+  if (!body) return `Gemini ${model} request failed (HTTP ${response.status}).`;
+
+  try {
+    const errorPayload = JSON.parse(body);
+    return errorPayload.error?.message || `Gemini ${model} request failed (HTTP ${response.status}).`;
+  } catch {
+    return body;
+  }
 }
 
 async function fileToBase64(file) {
