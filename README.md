@@ -1,6 +1,6 @@
 # Cunard Queens Grill Tracker
 
-A static, offline-capable PWA for saving and comparing Cunard Queens Grill cruise listings. Cruise details are extracted from screenshots with Gemini 2.5 Flash; your saved cruises and API key stay in browser storage unless you export them.
+A static, offline-capable PWA for saving and comparing Cunard Queens Grill cruise listings. Cruise details are extracted from screenshots with Gemini 3.8 Flash; your saved cruises and API key stay in browser storage unless you export them.
 
 ## Run locally
 

@@ -1,6 +1,6 @@
 const STORAGE_KEY = "cunard-queens-grill-cruises";
 const API_KEY_STORAGE = "cunard-gemini-api-key";
-const API_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+const API_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent";
 const IMAGE_DB_NAME = "cunard-queens-grill-share-inbox";
 const IMAGE_STORE_NAME = "shared-images";
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
