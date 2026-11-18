@@ -1,6 +1,13 @@
 const STORAGE_KEY = "cunard-queens-grill-cruises";
 const API_KEY_STORAGE = "cunard-gemini-api-key";
-const API_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent";
+const API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
+const FREE_MODELS = [
+  "gemini-3.8-flash",
+  "gemini-3.6-flash",
+  "gemini-3.5-flash-lite",
+  "gemini-3.1-flash-lite"
+];
+const RETRYABLE_API_STATUSES = new Set([429, 500, 502, 503, 504]);
 const IMAGE_DB_NAME = "cunard-queens-grill-share-inbox";
 const IMAGE_STORE_NAME = "shared-images";
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
@@ -277,6 +284,7 @@ async function processFiles(fileList) {
       if (file.size > MAX_IMAGE_BYTES) throw new Error(`${file.name || "Image"} is larger than the 20 MB limit.`);
       showStatus(`Sending ${file.name || "shared screenshot"} to Gemini…`, "info", true);
       const extracted = await extractCruise(file, apiKey);
+      showStatus(`${file.name || "Screenshot"} extracted. Review the details below.`);
       openEditor(extracted);
       const saved = await waitForEditorResult();
       if (saved) showStatus(`${file.name || "Screenshot"} was added to your collection.`, "success");
@@ -320,33 +328,58 @@ async function extractCruise(file, apiKey) {
     required: CRUISE_FIELDS
   };
   const prompt = `Read this Cunard cruise listing screenshot and extract the Queens Grill fare details. Return only a JSON object matching the provided schema. Use ISO dates (YYYY-MM-DD), an integer for nights, a numeric price per person without currency symbols, a three-letter currency code, and an empty string if no promotion is shown. Do not guess unreadable values; if an essential field cannot be read, use an empty string.`;
-  const url = new URL(API_ENDPOINT);
-  url.searchParams.set("key", apiKey);
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{
-        role: "user",
-        parts: [
-          { text: prompt },
-          { inline_data: { mime_type: file.type, data: imageBase64 } }
-        ]
-      }],
-      generationConfig: { responseMimeType: "application/json", responseSchema: schema }
-    })
+  const requestBody = JSON.stringify({
+    contents: [{
+      role: "user",
+      parts: [
+        { text: prompt },
+        { inline_data: { mime_type: file.type, data: imageBase64 } }
+      ]
+    }],
+    generationConfig: { responseMimeType: "application/json", responseSchema: schema }
   });
-
   let payload;
-  try {
-    payload = await response.json();
-  } catch {
-    throw new Error(`Gemini returned an unreadable response (HTTP ${response.status}).`);
+
+  for (const [index, model] of FREE_MODELS.entries()) {
+    const url = new URL(`${API_BASE_URL}/${model}:generateContent`);
+    url.searchParams.set("key", apiKey);
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: requestBody
+    });
+
+    if (response.ok) {
+      try {
+        payload = await response.json();
+      } catch {
+        throw new Error(`Gemini ${model} returned an unreadable response.`);
+      }
+      break;
+    }
+
+    let message = `Gemini ${model} request failed (HTTP ${response.status}).`;
+    try {
+      const errorPayload = await response.json();
+      message = errorPayload.error?.message || message;
+    } catch {
+      message = `Gemini ${model} returned an unreadable error response (HTTP ${response.status}).`;
+    }
+
+    const hasFallback = index < FREE_MODELS.length - 1;
+    if (!RETRYABLE_API_STATUSES.has(response.status) || !hasFallback) {
+      throw new Error(message);
+    }
+
+    const nextModel = FREE_MODELS[index + 1];
+    console.warn(`${model} is temporarily unavailable (HTTP ${response.status}); trying ${nextModel}.`);
+    showStatus(`Gemini ${model} is busy; trying ${nextModel}…`, "info", true);
   }
-  if (!response.ok) {
-    const message = payload.error?.message || `Gemini request failed (HTTP ${response.status}).`;
-    throw new Error(message);
+
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    throw new Error("Gemini returned an invalid response object.");
   }
+
   const text = payload.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("").trim();
   if (!text) throw new Error("Gemini did not return cruise details. Try a clearer screenshot.");
   let parsed;
