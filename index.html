@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#10233f">
+    <meta name="description" content="Track and compare Cunard Queens Grill cruise fares.">
+    <title>Cunard Queens Grill Tracker</title>
+    <link rel="icon" href="./icon.svg" type="image/svg+xml">
+    <link rel="manifest" href="./manifest.json">
+    <link rel="stylesheet" href="./styles.css">
+    <script type="module" src="./app.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="./" aria-label="Cunard Queens Grill Tracker home">
+        <img src="./icon.svg" alt="" width="42" height="42">
+        <span>
+          <strong>Cunard</strong>
+          <small>QUEENS GRILL TRACKER</small>
+        </span>
+      </a>
+      <nav class="header-actions" aria-label="App actions">
+        <button class="button button-quiet" id="settings-button" type="button">Settings</button>
+        <button class="button button-quiet" id="import-button" type="button">Import JSON</button>
+        <button class="button button-gold" id="export-button" type="button">Export JSON</button>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero" aria-labelledby="page-title">
+        <div class="hero-copy">
+          <p class="eyebrow">YOUR NEXT VOYAGE, CONSIDERED</p>
+          <h1 id="page-title">Queens Grill<br><span>fare tracker</span></h1>
+          <p class="hero-description">Keep the details close. Compare suite fares, voyage dates and nightly cost in one private, personal collection.</p>
+          <div class="hero-actions">
+            <button class="button button-gold button-large" id="add-button" type="button">
+              <span aria-hidden="true">＋</span> Add cruise screenshot
+            </button>
+            <button class="button button-hero-secondary" id="manual-add-button" type="button">Enter details manually</button>
+          </div>
+          <input id="file-input" class="visually-hidden" type="file" accept="image/*" multiple>
+        </div>
+        <div class="hero-aside" aria-hidden="true">
+          <span class="hero-rule"></span>
+          <span class="hero-mark">Q</span>
+          <span class="hero-caption">THE ART OF<br>THE VOYAGE</span>
+        </div>
+      </section>
+
+      <section class="collection" aria-labelledby="collection-title">
+        <div class="collection-heading">
+          <div>
+            <p class="eyebrow">YOUR PRIVATE COLLECTION</p>
+            <h2 id="collection-title">Saved voyages <span id="cruise-count" class="count-badge">0</span></h2>
+          </div>
+          <div class="filters">
+            <label>
+              <span>Ship</span>
+              <select id="ship-filter">
+                <option value="all">All ships</option>
+                <option>Queen Mary 2</option>
+                <option>Queen Victoria</option>
+                <option>Queen Elizabeth</option>
+                <option>Queen Anne</option>
+              </select>
+            </label>
+            <label>
+              <span>Sort by</span>
+              <select id="sort-order">
+                <option value="nightly">Cost per night · low to high</option>
+                <option value="total">Total price · low to high</option>
+                <option value="departure">Departure · soonest first</option>
+                <option value="duration">Duration · shortest first</option>
+                <option value="added">Date added · newest first</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div id="status-message" class="status-message" role="status" aria-live="polite" hidden></div>
+        <div id="drop-overlay" class="drop-overlay" aria-hidden="true">
+          <span>Drop cruise screenshots to add them</span>
+        </div>
+        <div id="cruise-list" class="cruise-list"></div>
+        <div id="empty-state" class="empty-state">
+          <div class="empty-emblem" aria-hidden="true">Q</div>
+          <h3>A voyage worth keeping</h3>
+          <p>Add a screenshot of a Queens Grill listing and your fare details will appear here.</p>
+          <button class="button button-outline" id="empty-add-button" type="button">Add your first screenshot</button>
+          <button class="button button-outline" id="empty-manual-button" type="button">Enter details manually</button>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <span>Made for the pleasure of planning.</span>
+      <span>Your collection stays in this browser.</span>
+    </footer>
+
+    <dialog id="settings-dialog" class="app-dialog">
+      <form method="dialog" class="dialog-shell">
+        <div class="dialog-heading">
+          <div>
+            <p class="eyebrow">CONNECTION</p>
+            <h2>Gemini API settings</h2>
+          </div>
+          <button class="icon-button" value="cancel" aria-label="Close settings">×</button>
+        </div>
+        <label class="field-label" for="api-key">Google Gemini API key</label>
+        <input id="api-key" class="text-input" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your API key">
+        <p class="field-help">Your key is saved only in this browser and sent directly to Google when you process a screenshot. Anyone with access to this browser can use it.</p>
+        <div class="dialog-actions">
+          <button class="button button-outline" id="clear-key-button" type="button">Remove key</button>
+          <button class="button button-gold" id="save-settings-button" type="button">Save key</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="edit-dialog" class="app-dialog app-dialog-wide">
+      <form id="edit-form" class="dialog-shell">
+        <div class="dialog-heading">
+          <div>
+            <p class="eyebrow">VOYAGE DETAILS</p>
+            <h2 id="edit-title">Edit cruise</h2>
+          </div>
+          <button class="icon-button" id="close-edit-button" type="button" aria-label="Close editor">×</button>
+        </div>
+        <input id="edit-id" type="hidden">
+        <div class="form-grid">
+          <label><span>Cruise number</span><input class="text-input" name="cruise_number" required></label>
+          <label><span>Ship</span><input class="text-input" name="ship" required></label>
+          <label><span>Destination</span><input class="text-input" name="destination" required></label>
+          <label><span>Duration (nights)</span><input class="text-input" name="nights" type="number" min="1" step="1" required></label>
+          <label><span>Departure date</span><input class="text-input" name="departure_date" type="date" required></label>
+          <label><span>Return date</span><input class="text-input" name="return_date" type="date" required></label>
+          <label><span>Departure port</span><input class="text-input" name="departure_port" required></label>
+          <label><span>Arrival port</span><input class="text-input" name="arrival_port" required></label>
+          <label><span>Price per person</span><input class="text-input" name="price_per_person" type="number" min="0.01" step="0.01" required></label>
+          <label><span>Currency</span><input class="text-input" name="currency" maxlength="3" required></label>
+          <label class="form-grid-wide"><span>Promotions or notes</span><textarea class="text-input" name="promo_notes" rows="3"></textarea></label>
+        </div>
+        <p id="edit-error" class="form-error" role="alert" hidden></p>
+        <div class="dialog-actions">
+          <button class="button button-outline" id="cancel-edit-button" type="button">Cancel</button>
+          <button class="button button-gold" type="submit">Save changes</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="import-dialog" class="app-dialog">
+      <form id="import-form" class="dialog-shell">
+        <div class="dialog-heading">
+          <div>
+            <p class="eyebrow">DATA PORTABILITY</p>
+            <h2>Import your collection</h2>
+          </div>
+          <button class="icon-button" id="close-import-button" type="button" aria-label="Close import options">×</button>
+        </div>
+        <p class="field-help">Choose a JSON backup. Your file is checked before any saved cruises are changed.</p>
+        <label class="file-picker">
+          <span>Select JSON file</span>
+          <input id="import-file" type="file" accept="application/json,.json" required>
+        </label>
+        <fieldset class="import-options">
+          <legend>How should it be imported?</legend>
+          <label><input type="radio" name="import-mode" value="merge" checked> Merge with saved voyages</label>
+          <label><input type="radio" name="import-mode" value="replace"> Replace saved voyages</label>
+        </fieldset>
+        <p id="import-error" class="form-error" role="alert" hidden></p>
+        <div class="dialog-actions">
+          <button class="button button-outline" id="cancel-import-button" type="button">Cancel</button>
+          <button class="button button-gold" type="submit">Import cruises</button>
+        </div>
+      </form>
+    </dialog>
+  </body>
+</html>
